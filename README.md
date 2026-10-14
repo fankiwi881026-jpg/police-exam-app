@@ -14,3 +14,11 @@
 ## 本機測試
 `pip install -r requirements.txt`
 `streamlit run app.py`
+
+
+## V6 新增
+- 台股只輸入 2330、6488，自動判斷上市 .TW／上櫃 .TWO；美股輸入 AAPL、NVDA。
+- K 線提供全部可取得歷史（yfinance `period=max`），並非保證所有下市股、全部交易所股票皆可查。
+- 自選股支援書籤分類、移動至分類（再次加入即可改分類）、分類檢視。
+- header.png 為全新產生的金融主視覺，需與 app.py 放在同一層上傳 GitHub。
+- 注意：Streamlit 免費雲端 SQLite 資料可能因重啟消失；多人共用不隔離。正式使用需改用雲端資料庫與登入。

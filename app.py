@@ -8,7 +8,8 @@ import requests
 import streamlit as st
 import yfinance as yf
 from engine import history
-from storage import watches, add_watch, remove_watch
+from storage import watches, add_watch, remove_watch, categories, create_category, add_watch_category, watches_by_category
+from symbols import resolve, long_history
 
 st.set_page_config(page_title="StockVision｜智慧看盤",page_icon="📊",layout="wide")
 st.markdown("""<style>
@@ -26,13 +27,14 @@ h1,h2,h3{color:#f5fbff!important;letter-spacing:.01em}
 [data-testid="stTabs"] button[aria-selected="true"]{color:#65e3ca!important}
 .stButton button{border-radius:12px}
 div[data-testid="stDataFrame"]{border-radius:14px;overflow:hidden}
-.hero{border-radius:20px;padding:22px 25px;margin-bottom:14px;background:linear-gradient(110deg,#244965,#20344e);border:1px solid #41617b}
+.stApp [data-testid='stHeader']{background:linear-gradient(90deg,#244d72,#1b3556)!important} .stApp [data-testid='stToolbar']{color:#e8f6ff!important} .hero{border-radius:20px;padding:22px 25px;margin-bottom:14px;background:linear-gradient(110deg,#244965,#20344e);border:1px solid #41617b}
 .hero .overline{color:#72e6ce;font-size:12px;letter-spacing:2px;font-weight:800}
 .hero h1{font-size:2.1rem;margin:5px 0}
 .hero p{margin:0;color:#c5daeb}
 @media(max-width:700px){.block-container{padding:1rem .65rem}.hero{padding:15px}.hero h1{font-size:1.55rem}}
 </style>""",unsafe_allow_html=True)
-st.markdown('<div class="hero"><div class="overline">STOCKVISION · MARKET STUDIO</div><h1>看懂市場，從這裡開始。</h1><p>分時・價量・K 線・公司資訊｜繁體中文看盤工作台</p></div>',unsafe_allow_html=True)
+st.image('header.png',use_container_width=True)
+st.markdown('<div class="hero"><div class="overline">STOCKVISION · MARKET STUDIO</div><h1>台股 × 美股｜歷史行情與自選股</h1><p>輸入代號即可查詢 · 長期 K 線 · 自訂書籤分類</p></div>',unsafe_allow_html=True)
 
 @st.cache_data(ttl=5,show_spinner=False)
 def tw_quote(s):
@@ -79,7 +81,7 @@ def quote(s):
     except Exception:return None
 
 def chart(d,mode='k',indicator=False):
-    d=d.tail(180 if mode=='k' else 350)
+    d=d.tail(350) if mode=='line' else d
     fig=make_subplots(rows=2,cols=1,shared_xaxes=True,vertical_spacing=.035,row_heights=[.78,.22])
     up='#ff7f91';down='#48d9ba'
     if mode=='line':
@@ -102,16 +104,25 @@ def chart(d,mode='k',indicator=False):
     return fig
 with st.sidebar:
     st.markdown('### 🧭 看盤導覽')
-    symbol=st.text_input('股票代號',value='2330.TW',help='台股 2330.TW、上櫃 6488.TWO、美股 AAPL').strip().upper()
+    market=st.radio('查詢市場',['自動判斷','台股','美股'],horizontal=True)
+    typed=st.text_input('股票代號',value='2330',help='直接輸入 2330、6488、AAPL、NVDA；無須輸入 .TW').strip().upper()
+    try:symbol=resolve(typed,market)
+    except ValueError as e:st.warning(str(e));st.stop()
+    st.caption(f'目前查詢：{symbol}')
     if st.button('🔄 更新行情',use_container_width=True):
         history.clear();intraday.clear();tw_quote.clear();st.rerun()
     st.divider()
-    new=st.text_input('加入自選股',placeholder='例如 AAPL')
-    if st.button('⭐ 新增',use_container_width=True) and new.strip():
-        add_watch(new.strip().upper());st.rerun()
-    w=watches()
+    st.markdown('#### 📚 自選股書籤')
+    group=st.selectbox('選擇分類',categories())
+    new_group=st.text_input('新增分類名稱',placeholder='例如 長期持有、AI 概念股')
+    if st.button('建立分類') and new_group.strip():
+        create_category(new_group);st.rerun()
+    if st.button('⭐ 將目前股票加入此分類',use_container_width=True):
+        add_watch_category(symbol,group);st.rerun()
+    st.caption('本分類：'+('、'.join(watches_by_category(group)) or '尚無股票'))
+    w=watches_by_category(group)
     if w:
-        remove=st.selectbox('移除自選股',w)
+        remove=st.selectbox('從書籤移除',w)
         if st.button('移除',use_container_width=True):remove_watch(remove);st.rerun()
     st.caption('台股證交所公開行情、美股 Yahoo Finance。並非交易所授權的逐筆即時報價。')
 
@@ -137,12 +148,17 @@ with tabs[1]:
         st.plotly_chart(chart(daily),use_container_width=True,config={'scrollZoom':True,'displaylogo':False})
     st.caption('日 K 資料與盤中快照來源不同，價格可能不一致。')
 with tabs[2]:
-    st.subheader('🕯️ K 線圖')
-    period=st.radio('顯示範圍',['近 1 個月','近 3 個月','近 6 個月','近 1 年'],index=2,horizontal=True)
-    if daily is not None:
-        n={'近 1 個月':23,'近 3 個月':66,'近 6 個月':130,'近 1 年':252}[period]
-        st.plotly_chart(chart(daily.tail(n)),use_container_width=True,config={'scrollZoom':True,'displaylogo':False})
-        st.caption('滑鼠滾輪縮放、拖曳平移、雙擊重設。紅漲綠跌。')
+    st.subheader('🕯️ 歷年 K 線圖')
+    period=st.radio('顯示範圍',['近 1 個月','近 3 個月','近 6 個月','近 1 年','近 5 年','近 10 年','全部歷史'],index=3,horizontal=True)
+    try:
+        d=long_history(symbol)
+        periods={'近 1 個月':31,'近 3 個月':93,'近 6 個月':186,'近 1 年':365,'近 5 年':1826,'近 10 年':3653}
+        if period in periods:d=d.loc[d.index>=d.index.max()-pd.Timedelta(days=periods[period])]
+        if len(d)>0:
+            st.caption(f'可取得歷史範圍：{d.index.min():%Y-%m-%d} 至 {d.index.max():%Y-%m-%d}｜共 {len(d):,} 根日 K')
+            st.plotly_chart(chart(d),use_container_width=True,config={'scrollZoom':True,'displaylogo':False})
+            st.caption('滑鼠滾輪縮放、拖曳平移、雙擊重設。紅漲綠跌。歷史長度依資料來源與上市時間而定。')
+    except Exception as e:st.warning('歷史行情暫時無法取得：'+str(e))
 with tabs[3]:
     st.subheader('🧭 指標')
     st.info('依照你的前次要求，預設不顯示任何均線、支撐線、壓力線或布林帶。')
@@ -202,16 +218,18 @@ with tabs[14]:
     if values:st.dataframe(pd.DataFrame(values),hide_index=True,use_container_width=True)
     else:st.info('目前無法取得公司基本資料。')
 st.divider()
-st.subheader('⭐ 自選股速覽')
+st.subheader('⭐ 自選股分類速覽')
+selected_group=st.selectbox('查看書籤',categories(),key='quick_group')
 @st.fragment(run_every='5s')
 def watch_panel():
-    symbols=list(dict.fromkeys(([symbol] if symbol else [])+watches()))[:12]
+    symbols=watches_by_category(selected_group)[:12]
     rows=[]
     for s in symbols:
         q=quote(s)
         rows.append({'股票':s,'最新可取得價格':q['價格'] if q else None,
                      '行情日期':q['日期'] if q else '—','行情時間':q['時間'] if q else '—',
                      '資料來源':q['來源'] if q else '無法取得'})
-    st.dataframe(pd.DataFrame(rows),hide_index=True,use_container_width=True)
+    if rows:st.dataframe(pd.DataFrame(rows),hide_index=True,use_container_width=True)
+    else:st.info('此分類尚未加入股票')
     st.caption('每 5 秒檢查一次公開行情（僅網頁開啟時）。查詢時間：'+datetime.now(ZoneInfo('Asia/Taipei')).strftime('%H:%M:%S')+'；不保證每次有新報價。')
 watch_panel()
