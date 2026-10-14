@@ -5,13 +5,13 @@ from plotly.subplots import make_subplots
 from engine import history,indicators,levels,score,backtest
 from storage import watches,add_watch,remove_watch,add_alert,alerts,delete_alert,mark_fired
 
-st.set_page_config(page_title='StockVision 股票技術分析',page_icon='📈',layout='wide')
+st.set_page_config(page_title='StockVision 股票技術分析',page_icon='📈',layout='wide',initial_sidebar_state='expanded')
 st.markdown('<div class="hero"><div class="eyebrow">STOCKVISION · MARKET INTELLIGENCE</div><h1>📈 StockVision</h1><p>台股 × 美股｜讓趨勢、支撐與量價訊號一眼看懂</p></div>', unsafe_allow_html=True)
 st.caption('每日歷史行情研究工具｜免費資料可能延遲，並非逐筆即時行情或交易建議。')
 with st.sidebar:
     st.markdown('### ◉ STOCKVISION')
     st.caption('深色金融儀表板 · v2')
-    auto_refresh = st.toggle('每 5 分鐘自動重新整理頁面', value=False, help='只有頁面開啟時才會更新；資料來源可能延遲。')
+    auto_refresh = False
     st.caption('🟢 網頁在線 ≠ 交易所即時報價')
 
 with st.sidebar:
@@ -23,21 +23,27 @@ with st.sidebar:
 
 
 st.markdown('''<style>
+html, body, .stApp, .stMarkdown, label {color:#edf4ff}
+[data-testid='stWidgetLabel'] p,[data-testid='stCaptionContainer'] p {color:#b6c8df!important}
+[data-testid='stDataFrame'],[data-testid='stTable'] {background:#15253b}
+[data-baseweb='input'] input,[data-baseweb='select'] div,textarea {color:#f4f8ff!important;background:#182c45!important}
+[data-testid='stSidebar'] * {color:#edf4ff!important}
+
 :root {color-scheme:dark}
-.stApp, [data-testid="stAppViewContainer"] {background: radial-gradient(circle at 85% 0%,#182943 0%,#090f1d 50%,#080e19 100%);color:#e7edf8}
-[data-testid="stSidebar"] {background:#0c1526;border-right:1px solid #233249}
+.stApp, [data-testid="stAppViewContainer"] {background: radial-gradient(circle at 85% 0%,#182943 0%,#15253c 50%,#101c30 100%);color:#e7edf8}
+[data-testid="stSidebar"] {background:#17283f;border-right:1px solid #233249}
 [data-testid="stHeader"] {background:transparent}
 .block-container {padding-top:1.4rem;max-width:1500px}
 .hero {padding:28px 30px;border:1px solid #2b3c56;border-radius:22px;background:linear-gradient(120deg,#182945,#0d1728);margin-bottom:14px;box-shadow:0 16px 38px #0004}
 .hero h1 {font-size:clamp(2rem,4vw,3rem);margin:2px 0 5px;letter-spacing:-.035em;color:#f2f7ff}
 .hero p {color:#aebed5;margin:0}
 .eyebrow {font-size:11px;font-weight:750;letter-spacing:.17em;color:#5ce3c3}
-[data-testid="stMetric"] {background:#121f33;padding:18px;border:1px solid #2b3c56;border-radius:16px}
+[data-testid="stMetric"] {background:#203650;padding:18px;border:1px solid #2b3c56;border-radius:16px}
 [data-testid="stMetricLabel"] {color:#a8bad2}
 [data-testid="stMetricValue"] {color:#f3f7ff}
 .stButton button[kind="primary"],.stButton button {border-radius:12px;border:1px solid #344762;background:#1b2c46;color:#e9f2ff}
 .stButton button:hover {border-color:#55d4b8;color:#7af5d6}
-[data-testid="stPlotlyChart"] {border:1px solid #2b3c56;border-radius:18px;overflow:hidden;background:#101a2d}
+[data-testid="stPlotlyChart"] {border:1px solid #2b3c56;border-radius:18px;overflow:hidden;background:#182c45}
 @media(max-width:650px){.block-container{padding:1rem .75rem}.hero{padding:18px}.hero h1{font-size:1.9rem}[data-testid="stMetric"]{padding:10px}}
 </style>''',unsafe_allow_html=True)
 
@@ -62,7 +68,7 @@ def plot(d,show_levels=True):
     fig.add_trace(go.Bar(x=d.index,y=d.Volume,marker_color=colors,name='成交量'),row=2,col=1)
     for name,color in [('VMA5','#f2a93b'),('VMA20','#4e98e5')]:
         fig.add_trace(go.Scatter(x=d.index,y=d[name],name=name,line=dict(color=color,width=1.4)),row=2,col=1)
-    fig.update_layout(template='plotly_dark',paper_bgcolor='#101a2d',plot_bgcolor='#101a2d',font=dict(color='#d9e4f5'),height=620,margin=dict(l=8,r=8,t=28,b=12),xaxis_rangeslider_visible=False,legend=dict(orientation='h',y=1.10),hovermode='x unified')
+    fig.update_layout(template='plotly_dark',paper_bgcolor='#182c45',plot_bgcolor='#182c45',font=dict(color='#d9e4f5'),height=620,margin=dict(l=8,r=8,t=28,b=12),xaxis_rangeslider_visible=False,legend=dict(orientation='h',y=1.10),hovermode='x unified')
     fig.update_xaxes(gridcolor='#26354d',zeroline=False)
     fig.update_yaxes(gridcolor='#26354d',zeroline=False)
     fig.update_xaxes(rangebreaks=[dict(bounds=['sat','mon'])])
@@ -72,8 +78,13 @@ if page=='技術分析':
     d=load(symbol)
     if d is not None:
         r=d.iloc[-1];s,notes=score(d)
+        previous=float(d.Close.iloc[-2]) if len(d)>1 else float(r.Close)
+        delta=float(r.Close)-previous
+        date=d.index[-1].strftime('%Y-%m-%d')
+        st.subheader(f'📌 {symbol}｜最新可取得日 K')
+        st.caption(f'資料日期：{date}｜收盤價，不是即時成交價｜來源 Yahoo Finance')
         a,b,c,dcol=st.columns(4)
-        a.metric('最新收盤價',f'{r.Close:,.2f}')
+        a.metric('最新收盤價',f'{r.Close:,.2f}',f'{delta:+,.2f} ({delta/previous:+.2%})' if previous else None)
         b.metric('20 日均線',f'{r.MA20:,.2f}' if pd.notna(r.MA20) else '—')
         c.metric('量比 / 20日均量',f'{r.VOL_RATIO:.2f}' if pd.notna(r.VOL_RATIO) else '—')
         dcol.metric('技術評分',f'{s}/100' if s is not None else '資料不足')
@@ -81,18 +92,46 @@ if page=='技術分析':
         su,re=levels(d)
         st.write('**支撐**：',', '.join(f'{v:.2f}（{n}次）' for v,n in su) or '無已確認支撐')
         st.write('**壓力**：',', '.join(f'{v:.2f}（{n}次）' for v,n in re) or '無已確認壓力')
-        st.write('**評分依據**：','；'.join(notes) if notes else '尚未符合加分條件')
-        st.caption('支撐壓力由近期已確認轉折點聚類得出，非成交密集區或保證有效價位。')
-        if st.button('＋ 加入自選股'):
-            add_watch(symbol);st.success('已加入')
+        with st.expander('查看評分依據'):
+            st.write('；'.join(notes) if notes else '尚未符合加分條件')
+        if st.button('⭐ 加入自選股'):
+            add_watch(symbol);st.success('已加入自選股，請到左側「自選股」查看')
 elif page=='自選股':
-    if st.button('加入側邊欄代號'):add_watch(symbol)
-    for s in watches():
-        a,b,c=st.columns([2,2,1]);a.write(s)
-        d=load(s)
-        if d is not None:
-            v,_=score(d);b.write(f'收盤 {d.Close.iloc[-1]:,.2f}｜評分 {v if v is not None else "—"}')
-        if c.button('移除',key='rm'+s):remove_watch(s);st.rerun()
+    st.subheader('⭐ 我的自選股')
+    st.caption('顯示最新可取得的每日收盤資料；不是即時盤中價格。日期會顯示在每一列。')
+    x,y=st.columns([3,1])
+    with x:
+        entry=st.text_input('新增股票代號',value=symbol,key='watch_add',help='台股例如 2330.TW；美股例如 AAPL')
+    with y:
+        st.write(' ')
+        if st.button('＋ 新增',use_container_width=True):
+            if entry.strip():add_watch(entry.strip().upper());st.rerun()
+    if st.button('🔄 更新全部自選股行情'):
+        history.clear();st.rerun()
+    symbols=watches()
+    if not symbols:
+        st.info('目前沒有自選股，請先輸入股票代號並按「新增」。')
+    else:
+        rows=[]
+        for s in symbols:
+            try:
+                d=indicators(history(s))
+                if len(d)<2: raise ValueError('資料不足')
+                r=d.iloc[-1];prev=float(d.Close.iloc[-2]);price=float(r.Close)
+                sc,_=score(d)
+                rows.append({'股票代號':s,'最新收盤價':round(price,2),'漲跌':round(price-prev,2),
+                             '漲跌幅':f'{(price/prev-1):+.2%}' if prev else '—',
+                             '資料日期':d.index[-1].strftime('%Y-%m-%d'),
+                             'MA20':round(float(r.MA20),2) if pd.notna(r.MA20) else None,
+                             '技術評分':sc if sc is not None else '—','資料狀態':'正常'})
+            except Exception:
+                rows.append({'股票代號':s,'最新收盤價':None,'漲跌':None,'漲跌幅':'—',
+                             '資料日期':'—','MA20':None,'技術評分':'—','資料狀態':'無法取得行情'})
+        st.dataframe(pd.DataFrame(rows),use_container_width=True,hide_index=True)
+        st.caption('若價格沒有變動，可能是休市、行情來源延遲，或當日資料尚未發布。')
+        remove=st.selectbox('移除自選股',symbols)
+        if st.button('移除所選股票'):
+            remove_watch(remove);st.rerun()
 elif page=='價格警示':
     with st.form('alert'):
         direction=st.selectbox('觸發條件',['突破','跌破'])
@@ -139,11 +178,3 @@ else:
             st.warning('示範回測未考慮真實成交限制、滑價、稅費差異及除權息現金流；不可視為實盤預期績效。')
         else:st.info('歷史資料不足，無法回測。')
 
-# Streamlit 自動重跑：只在使用者開啟頁面且啟用時運作，並非背景監控。
-if auto_refresh:
-    @st.fragment(run_every="300s")
-    def refresh_tick():
-        from datetime import datetime, timezone
-        st.caption('🔄 自動檢查時間：' + datetime.now(timezone.utc).strftime('%H:%M UTC') +
-                   '（重新取得行情請按側欄「重新抓取行情」；歷史日 K 非逐筆即時）')
-    refresh_tick()
