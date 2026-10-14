@@ -10,7 +10,7 @@ import yfinance as yf
 from engine import history
 from symbols import resolve,long_history
 from storage import categories,create_category,add_watch_category,watches_by_category,remove_watch
-st.set_page_config(page_title="StockVision｜即時看盤工作台",page_icon="📈",layout="wide",initial_sidebar_state="collapsed")
+st.set_page_config(page_title="StockVision｜即時看盤工作台",page_icon="📈",layout="wide",initial_sidebar_state="expanded")
 st.markdown("""<style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&display=swap');
 html,body,.stApp{font-family:'Noto Sans TC',sans-serif}
@@ -18,7 +18,7 @@ html,body,.stApp{font-family:'Noto Sans TC',sans-serif}
 [data-testid="stHeader"]{background:#233e59!important;min-height:2.5rem}
 [data-testid="stToolbar"]{transform:scale(.77);transform-origin:top right}
 [data-testid="stSidebar"]{background:#1d354d}
-.block-container{max-width:1550px;padding:2.5rem 1rem 1rem}
+.block-container{max-width:1650px;padding:2.4rem .8rem 1rem}
 h1,h2,h3{letter-spacing:.01em}
 [data-testid="stMetric"]{background:#244159;border:1px solid #426079;border-radius:15px;padding:10px}
 [data-testid="stMetricLabel"] p{color:#bed2e7!important}
@@ -39,8 +39,14 @@ h1,h2,h3{letter-spacing:.01em}
 [data-testid="stTabs"] button{font-size:12px;padding:.3rem .5rem}
 [data-testid="stMetric"]{padding:7px}
 [data-testid="stMetricValue"]{font-size:1.15rem}
-[data-testid="stImage"] img{max-height:95px;object-fit:cover}
+[data-testid="stImage"] img{max-height:90px;object-fit:cover}
 }
+</style>""",unsafe_allow_html=True)
+st.markdown("""<style>
+[data-testid="stMain"] [data-testid="stImage"] img{width:100%;max-height:185px;object-fit:cover;object-position:center 52%}
+[data-testid="stSidebar"] .stButton button{width:100%}
+[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p{font-size:.87rem}
+@media(max-width:700px){[data-testid="stMain"] [data-testid="stImage"] img{max-height:88px}}
 </style>""",unsafe_allow_html=True)
 st.image('header.png',use_container_width=True)
 @st.cache_data(ttl=45,show_spinner=False)
@@ -91,14 +97,37 @@ def plot(d,line=False):
     fig.update_xaxes(gridcolor='#35536b',showspikes=True)
     fig.update_yaxes(gridcolor='#35536b')
     return fig
-with st.container():
-    c1,c2,c3=st.columns([2.5,1.2,1.1],vertical_alignment='bottom')
-    with c1:
-        raw=st.text_input('搜尋股票代號',value=st.session_state.get('raw_symbol','2330'),placeholder='2330、6488、AAPL',label_visibility='collapsed')
-    with c2:market=st.selectbox('市場',['自動判斷','台股','美股'],label_visibility='collapsed')
-    with c3:
-        if st.button('↻ 更新資料',use_container_width=True):
-            latest.clear();intraday.clear();history.clear();st.rerun()
+with st.sidebar:
+    st.markdown('### 🔎 股票搜尋')
+    raw=st.text_input('輸入代號',value=st.session_state.get('raw_symbol','2330'),placeholder='2330、6488、AAPL',key='search_box')
+    market=st.selectbox('股票市場',['自動判斷','台股','美股'])
+    if st.button('↻ 更新行情與圖表',use_container_width=True):
+        latest.clear();intraday.clear();history.clear();st.rerun()
+    st.divider()
+    st.markdown('### ⭐ 自選股書籤')
+    groups=categories()
+    group=st.selectbox('分類書籤',groups)
+    stocks=watches_by_category(group)
+    if stocks:
+        selected=st.radio('點選股票立即查看',stocks,format_func=lambda x:x.replace('.TW','').replace('.TWO',''),index=None)
+        if selected and st.button('查看所選股票',use_container_width=True):
+            st.session_state['raw_symbol']=selected
+            st.session_state['search_box']=selected
+            st.rerun()
+    else:st.caption('這個分類尚未加入股票')
+    with st.expander('管理書籤與股票',expanded=False):
+        new=st.text_input('新分類名稱')
+        if st.button('建立分類',use_container_width=True) and new.strip():
+            create_category(new.strip());st.rerun()
+        if st.button('⭐ 將目前搜尋股票加入分類',use_container_width=True):
+            try:
+                add_watch_category(resolve(raw.strip().upper(),market),group)
+                st.rerun()
+            except Exception as exc:st.error(str(exc))
+        if stocks:
+            gone=st.selectbox('移除股票',stocks)
+            if st.button('移除所選股票',use_container_width=True):remove_watch(gone);st.rerun()
+    st.caption('書籤暫存於網站本機資料庫；免費雲端重啟可能遺失。')
 try:symbol=resolve(raw.strip().upper(),market)
 except ValueError as e:st.error(str(e));st.stop()
 info=fundamentals(symbol)
@@ -146,7 +175,7 @@ if not dv.empty or not sp.empty:available.append('除權息')
 if details:available.append('基本資料')
 if isinstance(fin,pd.DataFrame) and not fin.empty:available.append('財務報表')
 if news:available.append('新聞')
-available.append('自選股書籤')
+
 tabs=st.tabs(available)
 for label,tab in zip(available,tabs):
     with tab:
@@ -171,17 +200,4 @@ for label,tab in zip(available,tabs):
                 if isinstance(link,dict):link=link.get('url')
                 if isinstance(link,str) and link.startswith('https://'):st.markdown(f'[{html.escape(title)}]({link})')
                 else:st.write(title)
-        elif label=='自選股書籤':
-            a,b=st.columns(2)
-            with a:
-                group=st.selectbox('書籤分類',categories())
-                if st.button('⭐ 加入這個分類'):add_watch_category(symbol,group);st.success('已加入')
-            with b:
-                new=st.text_input('新增分類名稱')
-                if st.button('建立分類') and new.strip():create_category(new.strip());st.rerun()
-            stocks=watches_by_category(group)
-            st.write('、'.join(stocks) if stocks else '這個分類目前沒有股票')
-            if stocks:
-                chosen=st.selectbox('移除股票',stocks)
-                if st.button('移除所選'):remove_watch(chosen);st.rerun()
-st.caption('StockVision V7｜僅顯示可取得資料的分頁。資料來自第三方，可能延遲、缺漏；不構成投資建議。')
+st.caption('StockVision V8｜僅顯示可取得資料的分頁。資料來自第三方，可能延遲、缺漏；不構成投資建議。')
