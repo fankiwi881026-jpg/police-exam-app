@@ -1,22 +1,43 @@
-# StockVision V11｜31 種技術指標專業看盤版
+# 警察四等內軌｜行政警察備考系統
 
-這是參考台灣券商看盤操作習慣製作的獨立 StockVision 網頁，不是元大官方軟體，沒有複製元大原始程式或官方素材。
+響應式靜態網站，支援手機與電腦。內建 7 題**自編示範題**（非歷屆真題），六科分類、抽題、答題解析、錯題重練、收藏、統計、法規官方連結與 JSON 題庫匯入。
 
-## 功能
-- 左側股票搜尋、台美股、分類書籤
-- 股票名稱、最新可取得價格、行情時間
-- 日／週／月 K，3 個月至全部歷史，螢光紅漲綠跌
-- 31 種實際計算的技術指標（10 種主圖、21 種副圖），最多同時選 3+3
-- MACD、RSI、KD 等副圖在 K 線**下方**，可選擇顯示
-- 滾輪縮放、拖曳平移；Plotly x 軸 `minallowed`／`maxallowed` 限制在所選資料起訖，避免放大縮小後出現超出歷史期間的大塊空白
-- 指標定義與參數為一般常見版本，不一定與券商預設值完全相同；例如 VWAP 為 20 期滾動版
+## 啟用跨裝置同步
 
-## 安裝與部署
-1. 解壓縮，將所有檔案上傳至 GitHub 專案根目錄，保留 `.streamlit/config.toml` 資料夾。
-2. Streamlit Cloud 設定主程式 `app.py`，重新部署。
-3. 本機：`pip install -r requirements.txt`，然後 `streamlit run app.py`。
+1. 在 https://supabase.com/ 建立 Project。
+2. 進入 SQL Editor，貼上 `schema.sql` 全部執行。
+3. Project Settings / API（或 Connect）複製 Project URL 及 **publishable key / anon key** 到 `config.js`。**絕對不要使用 secret/service_role key。**
+4. 在 Authentication > URL Configuration 設定 Site URL 為 GitHub Pages 網址；Redirect URLs 也加入相同網址。Email 確認與密碼重設郵件需在 Supabase Authentication 設定。此版本登入支援 Email+密碼，密碼重設郵件會寄出，但重設密碼頁面尚未實作，建議先在 Supabase 後台協助重設。
+5. GitHub 新建公開 repository，上傳本資料夾所有檔案，在 Settings > Pages 選 Deploy from branch / main / root。等待 GitHub Pages 提供網址。
+6. 網站開啟「帳號設定」註冊、驗證並登入。登入後的**新作答**與收藏會寫入 Supabase，並在其他裝置顯示。
+7. 題庫匯入需要管理員權限：到 Supabase Authentication > Users 複製管理員 UID，在 SQL Editor 執行 `insert into public.admin_users(user_id) values ('UID');`。
 
-## 重要限制
-目前仍以 Yahoo Finance 取得台美股資料；不保證即時、完整或連續更新。元大 SPARK API **尚未開通／尚未串接**。沒有真實來源的五檔、逐筆成交、法人籌碼不會捏造。免費 Streamlit Cloud 的 SQLite 自選股可能因重啟遺失。
+> 注意：未登入期間保存在瀏覽器的紀錄不會自動合併進雲端；登入後以雲端資料為準。請先啟用雲端再開始正式累積進度。公開網站的使用者可自行註冊，若只想私人使用，請在 Supabase 關閉公開註冊並手動邀請帳號。
 
-31 指標已使用 280 筆合成 OHLCV 測試每種計算均可執行；尚未在使用者雲端站點做完整端到端測試。
+## 題庫格式
+
+上傳 UTF-8 JSON 陣列，例如：
+
+```json
+[
+  {
+    "subject":"警察法規概要",
+    "stem":"示範問題？",
+    "options":["選項A","選項B","選項C","選項D"],
+    "answer":1,
+    "explanation":"答案為 B 的理由。",
+    "source":"自編示範題（非歷屆真題）",
+    "law":"警察職權行使法"
+  }
+]
+```
+
+`answer` 使用 0、1、2、3 對應 A、B、C、D。正式考題請標註考試年度、題號、科目、官方來源並核對正確答案。避免匯入未經授權的商業題庫。一次最多 2000 題。
+
+## 注意事項與限制
+
+- 此為第一版原型，尚未收錄完整歷屆真題，也沒有自動抓取最新法條全文。法規頁連向法務部官方資料庫，正式備考請以最新公告為準。
+- Supabase 需要網路連線；未設定雲端時使用本機模式，清除瀏覽器資料可能遺失紀錄。
+- 雲端管理員權限由 RLS 管控；普通使用者無法新增雲端題庫。請自行定期備份資料庫。
+- 使用本機 HTTP server 預覽（例如 `python -m http.server 8000`），不要直接雙擊 HTML 以 file:// 開啟。
+- 目前「收藏」可於測驗結果操作，測驗頁選「只練收藏」。
