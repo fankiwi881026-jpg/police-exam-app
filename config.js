@@ -1,3 +1,5 @@
-// 將下方填入 Supabase Project URL 與 publishable/anon key（不要填 service_role/secret key）。
-export const SUPABASE_URL = '';
-export const SUPABASE_ANON_KEY = '';
+
+export const SUPABASE_URL = 'https://kisxksbapqubpwydprar.supabase.co';
+
+export const SUPABASE_ANON_KEY = 'sb_publishable_SC84wU7mSgquRD7F0rfDYw_sAjIe6DL';
+  
