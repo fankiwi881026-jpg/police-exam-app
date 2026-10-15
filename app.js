@@ -1,6 +1,6 @@
 import {SUPABASE_URL,SUPABASE_ANON_KEY} from './config.js';
 import {subjects,starter,laws} from './questions.js';
-const $=s=>document.querySelector(s), app=$('#app');let supa=null,user=null,tab='home',questions=[...starter],attempts=[],favorites=[],session=null,answers=[],pos=0,filter='',lawFilter='';
+const $=s=>document.querySelector(s), app=$('#app');let supa=null,user=null,tab='home',questions=[...starter],attempts=[],favorites=[],session=null,answers=[],pos=0,filter='',lawFilter='',excludedYears=[115,114,113],examMode='practice';
 const configured=!!(SUPABASE_URL&&SUPABASE_ANON_KEY);const safe=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const store=(k,v)=>localStorage.setItem('police_'+k,JSON.stringify(v));const load=(k,d)=>{try{return JSON.parse(localStorage.getItem('police_'+k))??d}catch{return d}};
 const nav=[['home','⌂ 首頁'],['practice','✎ 開始測驗'],['mistakes','↻ 錯題重練'],['laws','⚖ 法規查閱'],['stats','▥ 學習統計'],['manage','＋ 題庫管理'],['years','▦ 年度保留'],['account','♙ 帳號設定']];
