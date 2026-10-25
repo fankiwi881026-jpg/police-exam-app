@@ -1,0 +1,16 @@
+警察特考網站 v5｜本機備份及雲端同步
+
+重要：更新 GitHub 前，不要清除原本電腦的 Chrome 網站資料。
+1. 在電腦原本網站登出，確認幾百題仍在。
+2. 上傳本 ZIP 中網站檔案到 GitHub repository 根目錄（覆蓋同名檔）。
+3. 在 Supabase → SQL Editor 執行 migration_sync.sql 的前四行。
+4. 在 Supabase → Authentication → Users 複製自己的 User UID；若不是管理員，在 SQL Editor 執行：
+   INSERT INTO public.admin_users(user_id) VALUES ('你的UID') ON CONFLICT DO NOTHING;
+5. 電腦更新網站（Ctrl+F5）→ 題庫管理 →「① 下載本機完整備份」。確認下載成功後妥善保存。
+6. 帳號設定登入 → 題庫管理 →「② 上傳本機題庫到雲端」。等待成功訊息。
+7. 手機登入同一帳號，重新整理，確認題數。
+
+注意：本版同步的是題庫。舊的本機作答與收藏仍保留於備份檔，但尚未提供自動合併到雲端的功能。新增的雲端作答/收藏仍依原有功能同步。
+若顯示 42501 或 permission denied，請確認 admin_users 已加入 UID，且原本 schema.sql 的 RLS 政策存在。
+若提示找不到 original_id/year/level 欄位，請先執行 migration_sync.sql。
+如果之前有手動匯入相同題目，系統會先依內容略過，避免重複。
